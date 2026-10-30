@@ -55,27 +55,181 @@ afterAll(async () => {
   await db?.close();
 });
 describe('Migrations reais em PostgreSQL (PGlite)', () => {
+  it('protege pagamento: cliente informa, administrador confere, terceiros não leem', async () => {
+    await root();
+    await db.exec('begin');
+    const reject = async (sql: string, params: unknown[], expected: string) => {
+      await db.exec('savepoint payment_check');
+      await expect(db.query(sql, params)).rejects.toThrow(expected);
+      await db.exec('rollback to savepoint payment_check');
+    };
+    try {
+      const id = (
+        await db.query<{ id: string }>(
+          "insert into public.appointments(customer_id,professional_id,service_id,starts_at,ends_at,status,price_cents) select id,$1,$2,now()-interval '2 days',now()-interval '2 days'+interval '30 minutes','completed',3000 from public.customers where profile_id=$3 returning id",
+          [pro, svc, alice],
+        )
+      ).rows[0].id;
+      await as(alice);
+      expect(
+        (await db.query('select * from public.payment_settings')).rows,
+      ).toHaveLength(0);
+      await reject(
+        'select public.report_payment($1)',
+        [id],
+        'PIX_NOT_VERIFIED',
+      );
+      await db.query('select public.ensure_payment($1)', [id]);
+      await as(admin);
+      await db.query(
+        "select public.save_payment_settings('phone','+553298553119','André da Silva Nascimento Filho','MURIAE',true)",
+      );
+      await as(alice);
+      await db.query('select public.report_payment($1)', [id]);
+      expect(
+        (
+          await db.query(
+            'select status,confirmed_by from public.payments where appointment_id=$1',
+            [id],
+          )
+        ).rows[0],
+      ).toMatchObject({ status: 'awaiting_review', confirmed_by: null });
+      await reject(
+        "update public.payments set status='confirmed' where appointment_id=$1",
+        [id],
+        'permission denied',
+      );
+      await reject(
+        "select public.confirm_payment($1,'pix',3000,now(),true)",
+        [id],
+        'FORBIDDEN',
+      );
+      await as(bob);
+      expect(
+        (
+          await db.query(
+            'select * from public.payments where appointment_id=$1',
+            [id],
+          )
+        ).rows,
+      ).toHaveLength(0);
+      await reject('select public.ensure_payment($1)', [id], 'FORBIDDEN');
+      await as(admin);
+      await reject(
+        "select public.confirm_payment($1,'pix',2000,now(),true)",
+        [id],
+        'PAYMENT_AMOUNT_MISMATCH',
+      );
+      await reject(
+        "select public.confirm_payment($1,'pix',3000,now(),false)",
+        [id],
+        'PAYMENT_REVIEW_REQUIRED',
+      );
+      await db.query(
+        "select public.confirm_payment($1,'pix',3000,now(),true)",
+        [id],
+      );
+      await db.query(
+        "select public.confirm_payment($1,'cash',3000,now(),true)",
+        [id],
+      );
+      expect(
+        (
+          await db.query(
+            'select status,method,confirmed_by from public.payments where appointment_id=$1',
+            [id],
+          )
+        ).rows[0],
+      ).toMatchObject({
+        status: 'confirmed',
+        method: 'pix',
+        confirmed_by: admin,
+      });
+      expect(
+        (
+          await db.query(
+            "select e.id from public.payment_events e join public.payments p on p.id=e.payment_id where p.appointment_id=$1 and e.action='confirmed'",
+            [id],
+          )
+        ).rows,
+      ).toHaveLength(1);
+      await db.query(
+        "select public.save_payment_settings('phone','+553298553119','André da Silva Nascimento Filho','MURIAE',false)",
+      );
+      expect(
+        (await db.query('select verified_at from public.payment_settings'))
+          .rows[0],
+      ).toMatchObject({ verified_at: null });
+      await as(alice);
+      const future = (await book('17:00')).rows[0].id;
+      await reject(
+        'select public.ensure_payment($1)',
+        [future],
+        'PAYMENT_NOT_DUE',
+      );
+    } finally {
+      await root();
+      await db.exec('rollback');
+    }
+  });
   it('separa prazo de cancelamento e reagendamento e permite exceção administrativa de antecedência', async () => {
-    await root(); await db.exec('begin');
+    await root();
+    await db.exec('begin');
     try {
       await as(alice);
       const id = (await book('10:00')).rows[0].id;
       await as(admin);
-      await db.exec('update public.business_settings set cancellation_notice_minutes=43200,reschedule_notice_minutes=0');
+      await db.exec(
+        'update public.business_settings set cancellation_notice_minutes=43200,reschedule_notice_minutes=0',
+      );
       await as(alice);
-      await db.query("select public.change_appointment($1,'reschedule',$2)", [id, `${day}T11:00:00-03:00`]);
+      await db.query("select public.change_appointment($1,'reschedule',$2)", [
+        id,
+        `${day}T11:00:00-03:00`,
+      ]);
       await db.exec('savepoint forbidden_cancel');
-      await expect(db.query("select public.change_appointment($1,'cancelled')", [id])).rejects.toThrow('POLICY_LIMIT');
+      await expect(
+        db.query("select public.change_appointment($1,'cancelled')", [id]),
+      ).rejects.toThrow('POLICY_LIMIT');
       await db.exec('rollback to savepoint forbidden_cancel');
       await as(admin);
-      await db.exec('update public.business_settings set min_notice_minutes=43200');
-      expect((await db.query('select * from public.available_slots($1,$2,$3,$4)', [svc, pro, day, id])).rows.length).toBeGreaterThan(0);
+      await db.exec(
+        'update public.business_settings set min_notice_minutes=43200',
+      );
+      expect(
+        (
+          await db.query('select * from public.available_slots($1,$2,$3,$4)', [
+            svc,
+            pro,
+            day,
+            id,
+          ])
+        ).rows.length,
+      ).toBeGreaterThan(0);
       await as(alice);
-      expect((await db.query('select * from public.available_slots($1,$2,$3,$4)', [svc, pro, day, id])).rows).toHaveLength(0);
+      expect(
+        (
+          await db.query('select * from public.available_slots($1,$2,$3,$4)', [
+            svc,
+            pro,
+            day,
+            id,
+          ])
+        ).rows,
+      ).toHaveLength(0);
       await as(admin);
       await db.query("select public.change_appointment($1,'cancelled')", [id]);
-      expect((await db.query('select status from public.appointments where id=$1', [id])).rows[0]).toMatchObject({status:'cancelled'});
-    } finally { await root(); await db.exec('rollback'); }
+      expect(
+        (
+          await db.query('select status from public.appointments where id=$1', [
+            id,
+          ])
+        ).rows[0],
+      ).toMatchObject({ status: 'cancelled' });
+    } finally {
+      await root();
+      await db.exec('rollback');
+    }
   });
   it('respeita pausa, encerramento, buffer e preserva reservas ao mudar expediente', async () => {
     await root();

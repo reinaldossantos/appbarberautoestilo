@@ -52,6 +52,9 @@ export function AppointmentCard({
       </p>
       {admin && customerPhone ? <a className="text-link" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${customerPhone.replace(/\D/g, '').replace(/^(\d{10,11})$/, '55$1')}?text=${encodeURIComponent(`Olá! Atualização do seu atendimento na Auto-estilo: ${a.services?.name || 'Atendimento'}, ${localDate(a.starts_at)}. Situação: ${labels[a.status]}.`)}`}>Comunicar situação ao cliente pelo WhatsApp</a> : null}
       {a.status === 'scheduled' ? (
+        <Link className="text-link" href={`/conta/pagamento/${a.id}`}>Pagamento no atendimento</Link>
+      ) : a.status === 'completed' ? <Link className="text-link" href={`/conta/pagamento/${a.id}`}>Consultar pagamento</Link> : null}
+      {a.status === 'scheduled' ? (
         <div className="row-actions">
           <Link
             className="button button-outline button-sm"

@@ -11,6 +11,7 @@ const links = [
   ['servicos', 'Serviços'],
   ['fidelidade', 'Fidelidade'],
   ['relatorios', 'Relatórios'],
+  ['pagamentos', 'Configurações de Pagamento'],
   ['configuracoes', 'Configurações'],
   ['auditoria', 'Auditoria'],
 ];
