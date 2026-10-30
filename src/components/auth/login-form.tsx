@@ -4,12 +4,15 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import { Button } from '@/components/ui/button';
 import { emailSchema } from '@/lib/domain/validation';
+import { googleAvailable } from '@/lib/auth/providers';
 export function LoginForm({
   configured,
   admin = false,
+  googleEnabled = false,
 }: {
   configured: boolean;
   admin?: boolean;
+  googleEnabled?: boolean;
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -63,6 +66,11 @@ export function LoginForm({
   async function google() {
     setBusy(true);
     try {
+      if (!(await googleAvailable())) {
+        setMessage('O acesso com Google ainda não está disponível. Use seu e-mail ou acesso com senha.');
+        setBusy(false);
+        return;
+      }
       const { error } = await createClient().auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -138,9 +146,10 @@ export function LoginForm({
                 : 'Receber código por e-mail'}
         </Button>
       </form>
-      <Button variant="outline" onClick={google} disabled={!configured || busy}>
+      <Button variant="outline" onClick={google} disabled={!configured || !googleEnabled || busy}>
         Continuar com Google
       </Button>
+      {configured && !googleEnabled ? <p className="muted">Acesso com Google indisponível no momento. Utilize e-mail ou senha.</p> : null}
       <button
         className="text-link"
         onClick={() => {
