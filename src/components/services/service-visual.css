@@ -1,0 +1,113 @@
+.service-visual {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #29251c;
+  aspect-ratio: 1;
+  width: 100%;
+}
+.service-photo {
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/services-atlas.png');
+  background-size: 500% 200%;
+  transition: transform 0.35s ease;
+}
+.service-visual-icon {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #111e;
+  color: #f5c65d;
+  border: 1px solid #f5c65d66;
+}
+.service-card > .service-visual {
+  margin-bottom: 18px;
+  aspect-ratio: 1;
+}
+.service-card {
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.service-card:focus-within {
+  border-color: #e7bc56;
+}
+@media (hover: hover) {
+  .service-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 35px #0005;
+  }
+  .service-card:hover .service-photo {
+    transform: scale(1.045);
+  }
+}
+.service-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.service-choice {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  text-align: left;
+  background: var(--surface);
+  cursor: pointer;
+  color: var(--foreground);
+}
+.service-choice[aria-pressed='true'] {
+  border-color: #f5c65d;
+  box-shadow: 0 0 0 1px #f5c65d;
+  background: #282319;
+}
+.service-choice:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.service-choice strong,
+.service-choice small {
+  display: block;
+  margin-top: 8px;
+}
+.service-choice small {
+  color: #f5c65d;
+}
+.service-imagery-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .service-card {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+  .service-card > .service-visual {
+    grid-column: 1;
+    grid-row: 1 / 5;
+    width: 84px;
+    height: 112px;
+    margin: 0;
+  }
+  .service-visual-icon {
+    width: 26px;
+    height: 26px;
+    right: 4px;
+    bottom: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-card,
+  .service-photo {
+    transition: none;
+  }
+  .service-card:hover,
+  .service-card:hover .service-photo {
+    transform: none;
+  }
+}

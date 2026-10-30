@@ -80,6 +80,7 @@ export function ServiceCatalog({ services }: { services: Service[] }) {
           </button>
         </div>
       )}
+      <p className="service-imagery-note">Imagens ilustrativas dos serviços.</p>
     </>
   );
 }

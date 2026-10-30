@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowUpRight, Scissors, Sparkles, Clock3 } from 'lucide-react';
+import { ArrowUpRight, Clock3 } from 'lucide-react';
+import { ServiceVisual } from './service-visual';
 import type { Service } from '@/lib/domain/types';
 import { canBook } from '@/lib/domain/catalog';
 import { money } from '@/lib/utils';
@@ -13,11 +14,7 @@ export function ServiceCard({
 }) {
   return (
     <article className={`service-card ${featured ? 'featured' : ''}`}>
-      {service.status === 'coming_soon' ? (
-        <Sparkles className="service-icon" />
-      ) : (
-        <Scissors className="service-icon" />
-      )}
+      <ServiceVisual name={service.name} />
       {service.status === 'coming_soon' ? (
         <span className="badge">EM BREVE</span>
       ) : featured ? (

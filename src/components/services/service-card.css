@@ -1,7 +1,7 @@
 @media (max-width: 640px) {
   .service-card {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-columns: 84px minmax(0, 1fr);
     column-gap: 14px;
     min-height: 0;
     padding: 18px;
@@ -22,13 +22,25 @@
     margin-bottom: 8px;
     font-size: 9px;
   }
-  .service-card h3 { grid-column: 2; font-size: 16px; margin: 0 0 6px; }
-  .service-card p { grid-column: 2; margin: 0; font-size: 12px; }
-  .service-card p:empty { display: none; }
+  .service-card h3 {
+    grid-column: 2;
+    font-size: 16px;
+    margin: 0 0 6px;
+  }
+  .service-card p {
+    grid-column: 2;
+    margin: 0;
+    font-size: 12px;
+  }
+  .service-card p:empty {
+    display: none;
+  }
   .service-card .service-bottom {
     grid-column: 2;
     margin-top: 10px;
     padding-top: 10px;
   }
-  .service-card .service-price { font-size: 18px; }
+  .service-card .service-price {
+    font-size: 18px;
+  }
 }

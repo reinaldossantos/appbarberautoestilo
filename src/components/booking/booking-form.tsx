@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ServiceVisual } from '@/components/services/service-visual';
 import { canBook } from '@/lib/domain/catalog';
 import { money, localDate } from '@/lib/utils';
 import type { Professional, Service } from '@/lib/domain/types';
@@ -179,6 +180,34 @@ export function BookingForm({
               ))}
             </select>
           </label>
+          <div
+            className="service-choices"
+            role="group"
+            aria-label="Escolha visual do serviço"
+          >
+            {services.filter(canBook).map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className="service-choice"
+                aria-pressed={service === item.id}
+                disabled={!!reschedule}
+                onClick={() => {
+                  setService(item.id);
+                  reset();
+                }}
+              >
+                <ServiceVisual name={item.name} />
+                <strong>{item.name}</strong>
+                <small>
+                  {money(item.price_cents!)} · {item.duration_minutes} min
+                </small>
+              </button>
+            ))}
+          </div>
+          <p className="service-imagery-note">
+            Imagens ilustrativas dos serviços.
+          </p>
         </div>
         <div className="panel stack">
           <div className="step-title">
