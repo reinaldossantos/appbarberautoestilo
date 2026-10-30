@@ -1,0 +1,55 @@
+.hero-art {
+  aspect-ratio: 4 / 5;
+  border-radius: 24px;
+  box-shadow: 0 24px 90px #d4af3712;
+}
+.hero-art img { object-fit: cover; padding: 0; object-position: center 35%; }
+.hero-art::after {
+  content: '';
+  position: absolute;
+  inset: 45% 0 0;
+  background: linear-gradient(transparent, #070809f2);
+  pointer-events: none;
+}
+.hero-art .art-caption {
+  z-index: 1;
+  border: 0;
+  align-items: end;
+  bottom: 28px;
+}
+.portrait-signature {
+  display: block;
+  font: italic 42px Georgia, serif;
+  color: #f5c65d;
+  margin-bottom: 9px;
+}
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding-bottom: 40px;
+}
+.quick-actions a {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(140deg, #1a1c1e, #101113);
+  font-size: 14px;
+}
+.quick-actions svg { color: #f5c65d; flex-shrink: 0; }
+.quick-actions a:hover { border-color: #a88742; background: #252018; }
+@media (max-width: 640px) {
+  .hero { position: relative; padding-top: 28px; gap: 24px; }
+  .hero h1 { font-size: clamp(36px, 9vw, 49px); line-height: 1.08; }
+  .hero .intro { font-size: 14px; }
+  .hero-art { max-width: none; aspect-ratio: 1 / 1; }
+  .hero-actions { flex-direction: column; gap: 10px; }
+  .hero-actions .button { width: 100%; border-radius: 14px; }
+  .quick-actions { gap: 8px; padding-bottom: 28px; }
+  .quick-actions a { flex-direction: column; gap: 12px; padding: 14px 5px; font-size: 11px; text-align: center; }
+}

@@ -1,0 +1,6 @@
+.local
+.env*
+.git
+test-results
+playwright-report
+coverage
