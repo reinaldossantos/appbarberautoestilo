@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DeleteTestRecord } from '@/components/admin/delete-test-record';
 import { requireAdmin } from '@/lib/auth/session';
 import { ActionForm } from '@/components/forms/action-form';
 import { savePaymentSettings } from '@/lib/actions/payments';
@@ -91,6 +92,11 @@ export default async function Payments() {
           >
             Conferir pagamento
           </Link>
+          <DeleteTestRecord
+            kind="payment"
+            id={p.id}
+            label={`${p.customers?.name} — ${money(p.amount_cents)}`}
+          />
         </div>
       ))}
     </div>

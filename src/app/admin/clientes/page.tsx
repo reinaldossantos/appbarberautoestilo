@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/auth/session';
+import { DeleteTestRecord } from '@/components/admin/delete-test-record';
 import { ActionForm } from '@/components/forms/action-form';
 import { createCustomer } from '@/lib/actions/admin-catalog';
 import Link from 'next/link';
@@ -76,6 +77,7 @@ export default async function Customers({
             <tr>
               <th>Nome</th>
               <th>Telefone</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -83,6 +85,9 @@ export default async function Customers({
               <tr key={c.id}>
                 <td>{c.name}</td>
                 <td>{c.phone || 'Não informado'}</td>
+                <td>
+                  <DeleteTestRecord kind="customer" id={c.id} label={c.name} />
+                </td>
               </tr>
             ))}
           </tbody>

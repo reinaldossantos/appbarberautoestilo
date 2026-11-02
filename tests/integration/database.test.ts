@@ -55,6 +55,156 @@ afterAll(async () => {
   await db?.close();
 });
 describe('Migrations reais em PostgreSQL (PGlite)', () => {
+  it('exclui testes somente como admin, respeita dependências e preserva auditoria', async () => {
+    await root();
+    await db.exec('begin');
+    const reject = async (sql: string, params: unknown[], expected: string) => {
+      await db.exec('savepoint deletion_check');
+      await expect(db.query(sql, params)).rejects.toThrow(expected);
+      await db.exec('rollback to savepoint deletion_check');
+    };
+    try {
+      const customer = (
+        await db.query<{ id: string }>(
+          "insert into public.customers(name) values('Limpeza teste') returning id",
+        )
+      ).rows[0].id;
+      const appointment = (
+        await db.query<{ id: string }>(
+          "insert into public.appointments(customer_id,professional_id,service_id,starts_at,ends_at,status,price_cents) values($1,$2,$3,now()-interval '20 days',now()-interval '20 days'+interval '30 minutes','completed',3000) returning id",
+          [customer, pro, svc],
+        )
+      ).rows[0].id;
+      await as(admin);
+      await db.query(
+        "select public.confirm_payment($1,'cash',3000,now(),true)",
+        [appointment],
+      );
+      const payment = (
+        await db.query<{ id: string }>(
+          'select id from public.payments where appointment_id=$1',
+          [appointment],
+        )
+      ).rows[0].id;
+      const sql = 'select public.delete_test_record($1,$2,$3,$4,$5)';
+      await as(alice);
+      await reject(
+        sql,
+        ['customer', customer, 'Limpeza de testes', 'EXCLUIR', true],
+        'FORBIDDEN',
+      );
+      await as(admin);
+      await reject(
+        sql,
+        ['customer', customer, 'Limpeza de testes', '', true],
+        'INVALID_DELETION',
+      );
+      await reject(
+        sql,
+        ['customer', customer, 'Limpeza de testes', 'EXCLUIR', false],
+        'DEPENDENCIES_EXIST',
+      );
+      await reject(
+        sql,
+        ['appointment', appointment, 'Limpeza de testes', 'EXCLUIR', false],
+        'DEPENDENCIES_EXIST',
+      );
+      await reject(
+        'delete from public.payments where id=$1',
+        [payment],
+        'permission denied',
+      );
+      await db.query(sql, [
+        'payment',
+        payment,
+        'Limpeza de testes',
+        'EXCLUIR',
+        false,
+      ]);
+      expect(
+        (
+          await db.query('select id from public.appointments where id=$1', [
+            appointment,
+          ])
+        ).rows,
+      ).toHaveLength(1);
+      await db.query(sql, [
+        'appointment',
+        appointment,
+        'Limpeza de testes',
+        'EXCLUIR',
+        false,
+      ]);
+      await root();
+      expect(
+        (
+          await db.query(
+            'select id from public.schedule_occupancy where id=$1',
+            [appointment],
+          )
+        ).rows,
+      ).toHaveLength(0);
+      await as(admin);
+      await db.query(sql, [
+        'customer',
+        customer,
+        'Limpeza de testes',
+        'EXCLUIR',
+        false,
+      ]);
+      const audit = await db.query<{ old_data: Record<string, unknown> }>(
+        "select old_data from public.audit_logs where entity_id=$1 and action='DELETE_TEST'",
+        [payment],
+      );
+      expect(audit.rows).toHaveLength(1);
+      expect(audit.rows[0].old_data).toMatchObject({
+        status: 'confirmed',
+        confirmed_by: admin,
+      });
+      await root();
+      const c = (
+        await db.query<{ id: string }>(
+          "insert into public.customers(name) values('Cascata teste') returning id",
+        )
+      ).rows[0].id;
+      const a = (
+        await db.query<{ id: string }>(
+          "insert into public.appointments(customer_id,professional_id,service_id,starts_at,ends_at,status,price_cents) values($1,$2,$3,now()-interval '21 days',now()-interval '21 days'+interval '30 minutes','completed',3000) returning id",
+          [c, pro, svc],
+        )
+      ).rows[0].id;
+      await db.query(
+        "insert into public.loyalty_transactions(customer_id,appointment_id,points,operation_id,reason) values($1,$2,10,gen_random_uuid(),'Teste')",
+        [c, a],
+      );
+      await as(admin);
+      await db.query('select public.ensure_payment($1)', [a]);
+      await reject(
+        sql,
+        ['appointment', a, 'Limpeza de testes', 'EXCLUIR', true],
+        'LOYALTY_DEPENDENCY',
+      );
+      await db.query(sql, [
+        'customer',
+        c,
+        'Limpeza de testes',
+        'EXCLUIR',
+        true,
+      ]);
+      for (const table of ['appointments', 'payments', 'loyalty_transactions'])
+        expect(
+          (
+            await db.query(
+              `select id from public.${table} where customer_id=$1`,
+              [c],
+            )
+          ).rows,
+        ).toHaveLength(0);
+    } finally {
+      await root();
+      await db.exec('rollback');
+    }
+  });
   it('protege pagamento: cliente informa, administrador confere, terceiros não leem', async () => {
     await root();
     await db.exec('begin');

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DeleteTestRecord } from './delete-test-record';
 import { requireAdmin } from '@/lib/auth/session';
 import { AppointmentCard } from '@/components/account/appointment-card';
 import type { Appointment } from '@/lib/domain/types';
@@ -10,13 +11,20 @@ export async function AdminAppointmentList({
   filters = {},
   pathname = '/admin/agendamentos',
 }: {
-  filters?: { day?: string; service?: string; professional?: string; page?: string };
+  filters?: {
+    day?: string;
+    service?: string;
+    professional?: string;
+    page?: string;
+  };
   pathname?: string;
 }) {
   const { db } = await requireAdmin();
   const page = pageNumber(filters.page);
   const preserved = Object.fromEntries(
-    Object.entries(filters).filter(([key, value]) => key !== 'page' && typeof value === 'string'),
+    Object.entries(filters).filter(
+      ([key, value]) => key !== 'page' && typeof value === 'string',
+    ),
   ) as Record<string, string>;
   const [services, pros] = await Promise.all([
     db.from('services').select('id,name'),
@@ -24,7 +32,9 @@ export async function AdminAppointmentList({
   ]);
   let query = db
     .from('appointments')
-    .select('*,services(name),professionals(name),customers(name,phone)', { count: 'exact' })
+    .select('*,services(name),professionals(name),customers(name,phone)', {
+      count: 'exact',
+    })
     .order('starts_at', { ascending: false })
     .order('id')
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
@@ -88,7 +98,16 @@ export async function AdminAppointmentList({
         data.map((a) => (
           <div key={a.id}>
             <p className="muted">Cliente: {a.customers?.name}</p>
-            <AppointmentCard appointment={a as Appointment} admin customerPhone={a.customers?.phone} />
+            <AppointmentCard
+              appointment={a as Appointment}
+              admin
+              customerPhone={a.customers?.phone}
+            />
+            <DeleteTestRecord
+              kind="appointment"
+              id={a.id}
+              label={`${a.customers?.name} — ${a.services?.name}`}
+            />
           </div>
         ))
       ) : (
@@ -96,7 +115,13 @@ export async function AdminAppointmentList({
           Nenhum atendimento neste filtro.
         </div>
       )}
-      <Pagination page={page} count={count ?? 0} pathname={pathname} filters={preserved} noun="atendimentos" />
+      <Pagination
+        page={page}
+        count={count ?? 0}
+        pathname={pathname}
+        filters={preserved}
+        noun="atendimentos"
+      />
     </div>
   );
 }
