@@ -26,7 +26,7 @@ async function book(time: string, service = svc) {
 beforeAll(async () => {
   db = new PGlite({ extensions: { btree_gist } });
   await db.exec(
-    `create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}'); create table auth.mfa_factors(user_id uuid,status text); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; create function auth.jwt() returns jsonb language sql stable as $$ select '{"aal":"aal1"}'::jsonb $$; grant usage on schema public,auth to anon,authenticated; grant execute on all functions in schema auth to anon,authenticated;`,
+    `create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}'); create table auth.mfa_factors(user_id uuid,status text); create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; create function auth.jwt() returns jsonb language sql stable as $$ select '{"aal":"aal1"}'::jsonb $$; grant usage on schema public,auth to anon,authenticated; grant execute on all functions in schema auth to anon,authenticated;`,
   );
   const files = (await readdir('supabase/migrations'))
     .filter((f) => f.endsWith('.sql') && !f.includes('_storage'))
@@ -55,6 +55,119 @@ afterAll(async () => {
   await db?.close();
 });
 describe('Migrations reais em PostgreSQL (PGlite)', () => {
+  it('gerencia acessos sem permitir autoelevação ou ativação por e-mail não confirmado', async () => {
+    await root();
+    await db.exec('begin');
+    const reject = async (sql: string, params: unknown[], message: string) => {
+      await db.exec('savepoint access_check');
+      await expect(db.query(sql, params)).rejects.toThrow(message);
+      await db.exec('rollback to savepoint access_check');
+    };
+    try {
+      await db.query(
+        "update auth.users set email=case id when $1 then 'dev@example.test' when $2 then 'andre@example.test' else 'cliente@example.test' end, email_confirmed_at=case when id=$2 then null else now() end",
+        [admin, alice],
+      );
+      await as(alice);
+      await reject(
+        "select public.save_user_access('andre@example.test','André','admin')",
+        [],
+        'FORBIDDEN',
+      );
+      await as(admin);
+      await reject(
+        "select public.save_user_access('dev@example.test','Desenvolvedor','customer')",
+        [],
+        'SELF_DEMOTION',
+      );
+      await db.query(
+        "select public.save_user_access('andre@example.test','André','admin')",
+      );
+      await as(alice);
+      expect(
+        (await db.query('select * from public.user_access')).rows,
+      ).toHaveLength(0);
+      await db.query('select public.claim_user_access()');
+      expect(
+        (
+          await db.query<{ role: string }>(
+            'select role from public.profiles where id=$1',
+            [alice],
+          )
+        ).rows[0].role,
+      ).toBe('customer');
+      await root();
+      await db.query(
+        'update auth.users set email_confirmed_at=now() where id=$1',
+        [alice],
+      );
+      await as(alice);
+      await db.query('select public.claim_user_access()');
+      expect(
+        (
+          await db.query<{ role: string }>(
+            'select role from public.profiles where id=$1',
+            [alice],
+          )
+        ).rows[0].role,
+      ).toBe('admin');
+      await as(admin);
+      await db.query(
+        "select public.save_user_access('andre@example.test','André','customer')",
+      );
+      await as(alice);
+      await db.query('select public.claim_user_access()');
+      expect(
+        (
+          await db.query<{ role: string }>(
+            'select role from public.profiles where id=$1',
+            [alice],
+          )
+        ).rows[0].role,
+      ).toBe('customer');
+      await reject(
+        "update public.profiles set role='admin' where id=$1",
+        [alice],
+        'permission denied',
+      );
+      await as(admin);
+      await db.query(
+        "select public.save_user_access('novo@example.test','Nova pessoa','customer')",
+      );
+      const pending = (
+        await db.query<{ id: string }>(
+          "select id from public.user_access where email='novo@example.test'",
+        )
+      ).rows[0].id;
+      await db.query('select public.remove_pending_access($1)', [pending]);
+      expect(
+        (
+          await db.query('select id from public.user_access where id=$1', [
+            pending,
+          ])
+        ).rows,
+      ).toHaveLength(0);
+      expect(
+        (
+          await db.query<{ role: string }>(
+            'select role from public.profiles where id=$1',
+            [admin],
+          )
+        ).rows[0].role,
+      ).toBe('admin');
+      expect(
+        (
+          await db.query<{ role: string }>(
+            'select role from public.profiles where id=$1',
+            [bob],
+          )
+        ).rows[0].role,
+      ).toBe('customer');
+    } finally {
+      await root();
+      await db.exec('rollback');
+    }
+  });
   it('exclui testes somente como admin, respeita dependências e preserva auditoria', async () => {
     await root();
     await db.exec('begin');

@@ -7,6 +7,7 @@ const links = [
   ['agendamentos', 'Agendamentos'],
   ['bloqueios', 'Bloqueios'],
   ['clientes', 'Clientes'],
+  ['usuarios', 'Usuários e acessos'],
   ['profissionais', 'Profissionais'],
   ['servicos', 'Serviços'],
   ['fidelidade', 'Fidelidade'],

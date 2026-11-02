@@ -10,6 +10,8 @@ export const getSession = cache(async () => {
     data: { user },
   } = await db.auth.getUser();
   if (!user) return null;
+  const { error: accessError } = await db.rpc('claim_user_access');
+  if (accessError) throw new Error('Não foi possível validar o nível de acesso.');
   const { data: profile } = await db
     .from('profiles')
     .select('id, display_name, role')
